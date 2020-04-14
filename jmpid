@@ -1,0 +1,27 @@
+# my solution to jmp into directories 
+# Pavle Michko,  April 2013
+# cat this file at your .bashrc
+# example : 
+# mkdir -p /tmp/x/x/x ; jmp x ; jmp x; cd -
+
+jmp()
+{
+liste=$( grep $1'$' ~/.mydirs ) 
+word=($liste) 
+nb=${#word[*]}
+
+if [ $nb -gt 1 ]
+then
+   select rep in $liste
+	do 
+	index=$REPLY
+        break;
+	done
+else
+    rep=$liste
+fi
+find ~ -type d \( -name .* -prune -o -print  \) 2>/dev/null > ~/.mydirs &
+disown
+cd     $rep
+}
+# end of jmp

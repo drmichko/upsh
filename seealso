@@ -1,0 +1,118 @@
+#/usr/bin/bash
+# follow see also of the man pages
+function help {
+echo "
+La commande affiche l'arboresence des pages en
+suivant les rubriques SEE ALSO du manuel  man.
+
+seealso  option liste de comandes
+	-h : help
+"
+}
+while getopts ":hs:" option; do
+    case "${option}" in
+        h)
+            help
+	    exit
+            ;;
+        *)
+            echo usage : $0 [-h]
+	    exit
+            ;;
+    esac
+done
+
+
+shift $((OPTIND-1))
+
+declare -A table
+declare -A liens
+
+niveau=1
+
+for cmd in $* ; do
+	table[$cmd]=1
+done
+
+
+while [ 1 ]
+do
+	let next=niveau+1
+	for cmd in ${!table[*]}
+        do
+	      if [ ${table[$cmd]} -eq $niveau ]; then
+		p=${cmd%(*}
+		s=${cmd#*(}
+		s=${s/)/}
+	        lien=$( man  $s $p   2>/dev/null | sed -En "/SEE/,/info $cmd/p" \
+		| grep -Eio "[a-z0-9_\-]+\([0-9]+\)" \
+		   | grep -vEx '[A-Z]+\(.*\)' )
+	      liens[$cmd]="$lien"
+	      echo -n "[$niveau] $cmd ->" 
+	      for page in $lien; do
+	          if [[ -z ${table[$page]} || "${table[$page]}" = $next ]]; then
+			table[$page]=$next	
+			echo -n \ $page
+		  fi
+	       done
+	       echo
+               fi
+	done
+	echo -ne '\n[enter (g)raph (p)rint (q)uit (r)esume (d)delete or (k)eep section, ? page ]:'
+	read etat
+	case $etat in 
+		p) for cmd in ${!table[*]}; do
+                        if [ ${table[$cmd]} -gt 0  ]; then
+                        man -f ${cmd%(*}
+                        fi
+		   done
+		   ;;
+		q) break;;
+                r) echo ---
+		   echo -n resume : 
+			for cmd in ${!table[*]}; do
+                        	if [ ${table[$cmd]} -gt  0  ]; then
+                        	echo -n \ ${cmd%(*}
+                        fi 
+                    done | fold -sw 80
+		    echo 
+		    echo ---
+			;;
+		d*) section=${etat:1};
+		   for cmd in ${!table[*]}; do 
+			if [[  "$cmd" =~ $section ]]; then
+			table[$cmd]=0; 
+			fi
+		    done;; 
+		k*) section=${etat:1};
+		   for cmd in ${!table[*]}; do 
+			if [[ ! "$cmd" =~ $section ]]; then
+			table[$cmd]=0; 
+			fi
+		    done;;
+		 g) {
+	            echo digraph{ 
+		    for cmd in ${!table[*]}; do
+                        if [  ${table[$cmd]} -gt 0  ]; then
+                           for page in ${liens[$cmd]}; do
+                              if [  ${table[$page]} -gt 0  ]; then
+	                      echo "\"$cmd\" -> \"$page\";"
+			      fi
+			   done
+		        fi
+	             done
+		     echo }
+                     } > /tmp/seealso.dot
+		     for mode in dot circo neato twopi; do
+		     $mode -Tpng /tmp/seealso.dot -o /tmp/seealso-$mode.png
+                     done
+		     gthumb /tmp/seealso*.png
+                     ;;
+		'') let niveau++;;
+		'?'*) man ${etat:1};;
+	esac
+done
+
+
+echo :0
+
