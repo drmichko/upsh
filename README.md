@@ -7,4 +7,4 @@ jmpid   : jump into a directory
 
 
 seealso : follow the SEE ALSO of man pages 
-	  
+	  require dot 	  
